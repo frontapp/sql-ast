@@ -10,6 +10,7 @@ const NUMBER = 'number';
 const STRING = 'string';
 const VARIABLE = 'variable';
 const VERSION = 'version';
+const TIMESTAMP = 'timestamp';
 
 // End of statement
 const eos = is(PUNCT, ';');
@@ -29,7 +30,7 @@ const isPunct = is(PUNCT);
 const isValue = is([NULL, NUMBER, STRING, VARIABLE, WORD]);
 const isNumber = is(NUMBER);
 const isString = is(STRING);
-const isLiteral = is([NULL, NUMBER, STRING]);
+const isLiteral = is([NULL, NUMBER, STRING, TIMESTAMP]);
 const isVariable = is(VARIABLE);
 const isWordOrIdent = is([WORD, IDENT]);
 
@@ -119,6 +120,7 @@ function parse(input, opts = {}) {
               name,
               columns,
               start,
+              isUnique,
               end: toks.curr().end,
             });
             return;
@@ -136,7 +138,14 @@ function parse(input, opts = {}) {
             dataType = lc(next(isWord, true).value);
 
         let displayWidth;
-        if (next(isLeftParen)) {
+        let values = [];
+        if (dataType === 'enum' && next(isLeftParen)) {
+          while (tok = next(isString)) {
+            values.push(tok);
+            next(isComma);
+          }
+          next(isRightParen, true);
+        } else if (next(isLeftParen)) {
           displayWidth = next(isNumber, true).value;
           next(isRightParen, true);
         }
@@ -149,6 +158,10 @@ function parse(input, opts = {}) {
 
           switch (attr) {
             case 'COLLATE':
+              value = next(isWord, true).value;
+              break;
+            case 'CHARACTER':
+              next(isWord, true);
               value = next(isWord, true).value;
               break;
             case 'DEFAULT':
@@ -171,7 +184,7 @@ function parse(input, opts = {}) {
         }
 
         next(isComma);
-        stmt.columns.push({
+        const statement = {
           __proto__: AST.Column.prototype,
           name,
           dataType,
@@ -179,7 +192,11 @@ function parse(input, opts = {}) {
           attrs,
           start,
           end: toks.curr().end,
-        });
+        };
+        if (values) {
+          statement.values = values;
+        }
+        stmt.columns.push(statement);
       });
 
       // Parse table options.

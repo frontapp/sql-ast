@@ -4,6 +4,9 @@
   "license": "MIT",
   "repository": "aleclarson/sql-ast",
   "description": "MySQL parser",
+  "scripts": {
+    "convert": "npx run index.js"
+  },
   "files": [
     "index.js",
     "lib"
